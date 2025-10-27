@@ -24,6 +24,10 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   const [panStart, setPanStart] = useState({ x: 0, y: 0 })
   const [showNodeMenu, setShowNodeMenu] = useState(false)
   const [nodeMenuPosition, setNodeMenuPosition] = useState({ x: 0, y: 0 })
+  const [connectionInProgress, setConnectionInProgress] = useState<{
+    sourceId: string
+    mousePos: Position
+  } | null>(null)
   
   const canvasRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -35,7 +39,12 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   }, [manager, onWorkflowChange])
 
   const handleNodeDrag = (nodeId: string, position: Position) => {
-    manager.updateNodePosition(nodeId, position)
+    // Adjust position to account for zoom and pan
+    const adjustedPosition = {
+      x: (position.x - state.canvasPosition.x) / state.canvasZoom,
+      y: (position.y - state.canvasPosition.y) / state.canvasZoom
+    }
+    manager.updateNodePosition(nodeId, adjustedPosition)
     updateState()
   }
 
@@ -44,6 +53,53 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
     const node = manager.getNodeById(nodeId)
     onNodeSelect?.(node || null)
     updateState()
+  }
+
+  const handleConnectionStart = (nodeId: string, type: 'input' | 'output') => {
+    setConnectionInProgress({
+      sourceId: nodeId,
+      mousePos: { x: 0, y: 0 }
+    })
+  }
+
+  const handleConnectionEnd = (nodeId: string, type: 'input' | 'output') => {
+    if (connectionInProgress) {
+      handleNodeConnect(connectionInProgress.sourceId, nodeId)
+    }
+    setConnectionInProgress(null)
+  }
+
+  const handleNodeConnect = (sourceId: string, targetId: string) => {
+    // Prevent self-connections
+    if (sourceId === targetId) return
+    
+    // Check if connection already exists
+    const existingConnection = state.connections.find(
+      conn => (conn.source === sourceId && conn.target === targetId) ||
+              (conn.source === targetId && conn.target === sourceId)
+    )
+    
+    if (existingConnection) {
+      console.log('Connection already exists')
+      return
+    }
+    
+    // Validate connection based on node inputs/outputs
+    const sourceNode = manager.getNodeById(sourceId)
+    const targetNode = manager.getNodeById(targetId)
+    
+    if (!sourceNode || !targetNode) return
+    
+    // Check if target node can accept input from source node
+    const hasCompatibleIO = sourceNode.outputs.length > 0 && targetNode.inputs.length > 0
+    
+    if (hasCompatibleIO) {
+      manager.addConnection(sourceId, targetId)
+      updateState()
+      console.log(`Connected ${sourceNode.data.title} → ${targetNode.data.title}`)
+    } else {
+      console.log('Nodes are not compatible for connection')
+    }
   }
 
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -58,10 +114,8 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   const handleCanvasDoubleClick = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect()
     if (rect) {
-      const x = (e.clientX - rect.left - state.canvasPosition.x) / state.canvasZoom
-      const y = (e.clientY - rect.top - state.canvasPosition.y) / state.canvasZoom
-      
-      setNodeMenuPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      // Store screen position for menu placement
+      setNodeMenuPosition({ x: e.clientX, y: e.clientY })
       setShowNodeMenu(true)
     }
   }
@@ -92,8 +146,25 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   const handleWheel = (e: React.WheelEvent) => {
     if (e.metaKey || e.ctrlKey) {
       e.preventDefault()
+      
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+      
+      // Calculate mouse position relative to canvas
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+      
+      // Calculate zoom delta
       const delta = e.deltaY > 0 ? -0.1 : 0.1
-      manager.updateCanvasZoom(state.canvasZoom + delta)
+      const newZoom = Math.max(0.1, Math.min(2, state.canvasZoom + delta))
+      
+      // Calculate new pan position to zoom towards mouse cursor
+      const zoomRatio = newZoom / state.canvasZoom
+      const newPanX = mouseX - (mouseX - state.canvasPosition.x) * zoomRatio
+      const newPanY = mouseY - (mouseY - state.canvasPosition.y) * zoomRatio
+      
+      manager.updateCanvasZoom(newZoom)
+      manager.updateCanvasPosition({ x: newPanX, y: newPanY })
       updateState()
     }
   }
@@ -101,9 +172,12 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   const addNode = (type: keyof typeof NODE_TYPES) => {
     const rect = canvasRef.current?.getBoundingClientRect()
     if (rect) {
+      // Calculate position in canvas space accounting for zoom and pan
+      const canvasX = nodeMenuPosition.x - rect.left
+      const canvasY = nodeMenuPosition.y - rect.top
       const position = {
-        x: (nodeMenuPosition.x - state.canvasPosition.x) / state.canvasZoom,
-        y: (nodeMenuPosition.y - state.canvasPosition.y) / state.canvasZoom
+        x: (canvasX - state.canvasPosition.x) / state.canvasZoom,
+        y: (canvasY - state.canvasPosition.y) / state.canvasZoom
       }
       manager.addNode(type, position)
       updateState()
@@ -118,12 +192,36 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
   }
 
   const zoomIn = () => {
-    manager.updateCanvasZoom(state.canvasZoom + 0.2)
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+    const newZoom = Math.min(2, state.canvasZoom + 0.2)
+    const zoomRatio = newZoom / state.canvasZoom
+    
+    const newPanX = centerX - (centerX - state.canvasPosition.x) * zoomRatio
+    const newPanY = centerY - (centerY - state.canvasPosition.y) * zoomRatio
+    
+    manager.updateCanvasZoom(newZoom)
+    manager.updateCanvasPosition({ x: newPanX, y: newPanY })
     updateState()
   }
 
   const zoomOut = () => {
-    manager.updateCanvasZoom(state.canvasZoom - 0.2)
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return
+    
+    const centerX = rect.width / 2
+    const centerY = rect.height / 2
+    const newZoom = Math.max(0.1, state.canvasZoom - 0.2)
+    const zoomRatio = newZoom / state.canvasZoom
+    
+    const newPanX = centerX - (centerX - state.canvasPosition.x) * zoomRatio
+    const newPanY = centerY - (centerY - state.canvasPosition.y) * zoomRatio
+    
+    manager.updateCanvasZoom(newZoom)
+    manager.updateCanvasPosition({ x: newPanX, y: newPanY })
     updateState()
   }
 
@@ -174,6 +272,16 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
          } as React.CSSProperties}>
       {/* Toolbar */}
       <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2">
+        {/* Workflow Status */}
+        <div className="flex items-center gap-2 px-2 text-xs">
+          <div className={`w-2 h-2 rounded-full ${state.isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+          <span className="text-gray-600 dark:text-gray-400">
+            {state.nodes.length} nodes
+          </span>
+        </div>
+        
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
+        
         <button
           onClick={toggleWorkflow}
           className={`p-2 rounded transition-colors ${
@@ -246,22 +354,46 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
         {/* Connections SVG */}
         <svg
           ref={svgRef}
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full"
           style={{
-            transform: `translate(${state.canvasPosition.x}px, ${state.canvasPosition.y}px) scale(${state.canvasZoom})`
+            transform: `translate(${state.canvasPosition.x}px, ${state.canvasPosition.y}px) scale(${state.canvasZoom})`,
+            pointerEvents: 'none'
           }}
         >
-          {state.connections.map((connection) => (
-            <path
-              key={connection.id}
-              d={getConnectionPath(connection)}
-              stroke="#6b7280"
-              strokeWidth="2"
-              fill="none"
-              className="drop-shadow-sm"
-              markerEnd="url(#arrowhead)"
-            />
-          ))}
+          {state.connections.map((connection) => {
+            const sourceNode = state.nodes.find(n => n.id === connection.source)
+            const targetNode = state.nodes.find(n => n.id === connection.target)
+            
+            return (
+              <g key={connection.id}>
+                {/* Invisible thick line for easier clicking */}
+                <path
+                  d={getConnectionPath(connection)}
+                  stroke="transparent"
+                  strokeWidth="12"
+                  fill="none"
+                  style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (window.confirm(`Delete connection from ${sourceNode?.data.title} to ${targetNode?.data.title}?`)) {
+                      manager.removeConnection(connection.id)
+                      updateState()
+                    }
+                  }}
+                />
+                {/* Visible connection line */}
+                <path
+                  d={getConnectionPath(connection)}
+                  stroke="#6b7280"
+                  strokeWidth="2"
+                  fill="none"
+                  style={{ pointerEvents: 'none' }}
+                  className="drop-shadow-sm transition-all"
+                  markerEnd="url(#arrowhead)"
+                />
+              </g>
+            )
+          })}
           
           {/* Arrow marker */}
           <defs>
@@ -283,9 +415,9 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
 
         {/* Nodes Container */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 origin-top-left"
           style={{
-            transform: `translate(${state.canvasPosition.x}px, ${state.canvasPosition.y}px)`
+            transform: `translate(${state.canvasPosition.x}px, ${state.canvasPosition.y}px) scale(${state.canvasZoom})`
           }}
         >
           {state.nodes.map((node) => (
@@ -295,7 +427,9 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
               isSelected={state.selectedNodeId === node.id}
               onSelect={handleNodeSelect}
               onDrag={handleNodeDrag}
-              onConnect={() => {}} // TODO: Implement connection logic
+              onConnect={handleNodeConnect}
+              onConnectionStart={handleConnectionStart}
+              onConnectionEnd={handleConnectionEnd}
               scale={state.canvasZoom}
             />
           ))}
@@ -335,13 +469,18 @@ export default function WorkflowBuilder({ onNodeSelect, onWorkflowChange }: Work
       )}
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 max-w-xs">
+      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 max-w-sm z-10">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          <div className="font-medium mb-1">Quick Actions:</div>
-          <div>• Double-click to add nodes</div>
-          <div>• Drag nodes to reposition</div>
-          <div>• Cmd+scroll to zoom</div>
-          <div>• Middle-click to pan</div>
+          <div className="font-medium text-gray-900 dark:text-gray-100 mb-2">Quick Actions:</div>
+          <div className="space-y-1">
+            <div>• <span className="font-medium">Double-click</span> canvas to add nodes</div>
+            <div>• <span className="font-medium">Drag</span> nodes to reposition</div>
+            <div>• <span className="font-medium">Drag</span> connection points (⚪) to connect nodes</div>
+            <div>• <span className="font-medium">Click</span> connections to delete them</div>
+            <div>• <span className="font-medium">⌘ + Scroll</span> to zoom in/out</div>
+            <div>• <span className="font-medium">Middle-click</span> or <span className="font-medium">⌘ + Drag</span> to pan</div>
+            <div>• <span className="font-medium">Click node</span> to configure in chat</div>
+          </div>
         </div>
       </div>
     </div>

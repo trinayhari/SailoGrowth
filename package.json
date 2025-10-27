@@ -10,17 +10,18 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@langchain/openai": "^0.0.14",
     "@supabase/supabase-js": "^2.57.4",
+    "@xyflow/react": "^12.9.0",
+    "date-fns": "^2.30.0",
+    "langchain": "^0.0.208",
     "lucide-react": "^0.344.0",
     "next": "14.0.3",
+    "openai": "^4.20.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.8.0",
-    "openai": "^4.20.1",
-    "langchain": "^0.0.208",
-    "@langchain/openai": "^0.0.14",
-    "sql-formatter": "^15.0.2",
-    "date-fns": "^2.30.0"
+    "sql-formatter": "^15.0.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

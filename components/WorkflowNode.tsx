@@ -10,6 +10,8 @@ interface WorkflowNodeProps {
   onSelect: (nodeId: string) => void
   onDrag: (nodeId: string, position: { x: number; y: number }) => void
   onConnect: (sourceId: string, targetId: string) => void
+  onConnectionStart?: (nodeId: string, type: 'input' | 'output') => void
+  onConnectionEnd?: (nodeId: string, type: 'input' | 'output') => void
   scale: number
 }
 
@@ -19,11 +21,14 @@ export default function WorkflowNode({
   onSelect, 
   onDrag, 
   onConnect,
+  onConnectionStart,
+  onConnectionEnd,
   scale 
 }: WorkflowNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [isConnecting, setIsConnecting] = useState(false)
+  const [connectionStart, setConnectionStart] = useState<'input' | 'output' | null>(null)
   const nodeRef = useRef<HTMLDivElement>(null)
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -54,6 +59,25 @@ export default function WorkflowNode({
 
   const handleMouseUp = () => {
     setIsDragging(false)
+  }
+
+  const handleConnectionPointMouseDown = (e: React.MouseEvent, type: 'input' | 'output') => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    setIsConnecting(true)
+    setConnectionStart(type)
+    onConnectionStart?.(node.id, type)
+  }
+
+  const handleConnectionPointMouseUp = (e: React.MouseEvent, type: 'input' | 'output') => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    onConnectionEnd?.(node.id, type)
+    
+    setIsConnecting(false)
+    setConnectionStart(null)
   }
 
   // Add global mouse event listeners when dragging
@@ -109,14 +133,36 @@ export default function WorkflowNode({
     >
       {/* Connection Points */}
       {node.inputs.length > 0 && (
-        <div className="absolute -left-2 top-1/2 transform -translate-y-1/2">
-          <div className="w-4 h-4 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 hover:bg-blue-500 transition-colors cursor-pointer" />
+        <div 
+          className="absolute -left-2 top-1/2 transform -translate-y-1/2 z-10"
+          onMouseDown={(e) => handleConnectionPointMouseDown(e, 'input')}
+          onMouseUp={(e) => handleConnectionPointMouseUp(e, 'input')}
+        >
+          <div 
+            className={`w-4 h-4 rounded-full border-2 border-white dark:border-gray-800 transition-all cursor-pointer ${
+              isConnecting && connectionStart === 'input'
+                ? 'bg-blue-500 scale-125' 
+                : 'bg-gray-400 dark:bg-gray-500 hover:bg-blue-500 hover:scale-110'
+            }`}
+            title={`Input: ${node.inputs.join(', ')}`}
+          />
         </div>
       )}
       
       {node.outputs.length > 0 && (
-        <div className="absolute -right-2 top-1/2 transform -translate-y-1/2">
-          <div className="w-4 h-4 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 hover:bg-blue-500 transition-colors cursor-pointer" />
+        <div 
+          className="absolute -right-2 top-1/2 transform -translate-y-1/2 z-10"
+          onMouseDown={(e) => handleConnectionPointMouseDown(e, 'output')}
+          onMouseUp={(e) => handleConnectionPointMouseUp(e, 'output')}
+        >
+          <div 
+            className={`w-4 h-4 rounded-full border-2 border-white dark:border-gray-800 transition-all cursor-pointer ${
+              isConnecting && connectionStart === 'output'
+                ? 'bg-blue-500 scale-125' 
+                : 'bg-gray-400 dark:bg-gray-500 hover:bg-blue-500 hover:scale-110'
+            }`}
+            title={`Output: ${node.outputs.join(', ')}`}
+          />
         </div>
       )}
 

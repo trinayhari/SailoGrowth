@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Database, TrendingUp, AlertCircle } from 'lucide-react'
 import QueryResult from './QueryResult'
 import ChatHeader from './ChatHeader'
+import WorkflowPanel from './WorkflowPanel'
 import { QueryResult as QueryResultType } from '../lib/sql-agent'
 import { mockQueryResults, mockFollowUps } from '../lib/mock-data'
+import { WorkflowCapability, WorkflowState } from '../lib/workflow-types'
 
 interface Message {
   id: string
@@ -21,6 +23,7 @@ export default function DemoChatView() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null)
+  const [workflowState, setWorkflowState] = useState<WorkflowState | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -115,6 +118,22 @@ export default function DemoChatView() {
     // In a real app, this would save to dashboard
   }
 
+  const handleCapabilityClick = (capability: WorkflowCapability) => {
+    // Add a message about the clicked capability
+    const capabilityMessage: Message = {
+      id: Date.now().toString(),
+      role: 'agent',
+      content: `You clicked on **${capability.title}** (${capability.icon}). This capability handles: ${capability.description}. Current status: ${capability.status}. ${capability.isActive ? 'This is currently the active capability in your workflow.' : ''}`,
+      timestamp: new Date(),
+    }
+    
+    setMessages(prev => [...prev, capabilityMessage])
+  }
+
+  const handleWorkflowUpdate = (state: WorkflowState) => {
+    setWorkflowState(state)
+  }
+
   return (
     <div className="flex flex-col h-screen bg-white dark:bg-gray-950">
       <ChatHeader
@@ -122,8 +141,11 @@ export default function DemoChatView() {
         onConnectionChange={setSelectedConnectionId}
       />
       
-      <div className="flex-1 overflow-y-auto pb-32">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 overflow-y-auto pb-32">
+            <div className="max-w-4xl mx-auto px-6 py-8">
           {messages.length === 0 && (
             <div className="flex items-center justify-center h-[60vh]">
               <div className="text-center">
@@ -228,34 +250,43 @@ export default function DemoChatView() {
             </div>
           )}
 
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask me anything about your data... (⌘+Enter to send)"
-                className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-2xl px-4 py-3 pr-12 border border-gray-200 dark:border-gray-800 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none min-h-[52px] max-h-32 text-sm"
-                rows={1}
-                disabled={isProcessing}
-              />
+              <div ref={messagesEndRef} />
             </div>
-            <button
-              onClick={() => handleSend()}
-              disabled={!input.trim() || isProcessing}
-              className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 text-white rounded-2xl transition-colors"
-            >
-              <Send className="h-5 w-5" />
-            </button>
+          </div>
+
+          {/* Input Area */}
+          <div className="fixed bottom-0 left-0 right-80 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm border-t border-gray-200 dark:border-gray-800">
+            <div className="max-w-4xl mx-auto px-6 py-4">
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask me anything about your data... (⌘+Enter to send)"
+                    className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-2xl px-4 py-3 pr-12 border border-gray-200 dark:border-gray-800 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none resize-none min-h-[52px] max-h-32 text-sm"
+                    rows={1}
+                    disabled={isProcessing}
+                  />
+                </div>
+                <button
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || isProcessing}
+                  className="flex items-center justify-center w-12 h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:text-gray-500 dark:disabled:text-gray-600 text-white rounded-2xl transition-colors"
+                >
+                  <Send className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Workflow Panel */}
+        <WorkflowPanel
+          onCapabilityClick={handleCapabilityClick}
+          onWorkflowUpdate={handleWorkflowUpdate}
+        />
       </div>
     </div>
   )

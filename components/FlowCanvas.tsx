@@ -16,7 +16,7 @@ import {
   Panel,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Plus } from 'lucide-react'
+import { Plus, Save, Check, Download } from 'lucide-react'
 import NodeCard from './NodeCard'
 
 const nodeTypes = {
@@ -148,6 +148,7 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
   const [nodeIdCounter, setNodeIdCounter] = useState(6)
   const [showNodeMenu, setShowNodeMenu] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
   // Load from localStorage after component mounts (client-side only)
   useEffect(() => {
@@ -246,6 +247,49 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
     },
     []
   )
+
+  const handleSaveWorkflow = useCallback(() => {
+    setSaveStatus('saving')
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const workflowData = {
+          nodes,
+          edges,
+          savedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(workflowData))
+        
+        // Show saved status
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      } catch (e) {
+        console.error('Failed to save workflow:', e)
+        setSaveStatus('idle')
+      }
+    }
+  }, [nodes, edges])
+
+  const handleExportWorkflow = useCallback(() => {
+    const workflowData = {
+      nodes,
+      edges,
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+    }
+    
+    const dataStr = JSON.stringify(workflowData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `workflow-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [nodes, edges])
 
   return (
     <div className="w-full h-full bg-gray-50">
@@ -379,18 +423,62 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
           </div>
         </Panel>
 
-        {/* Workflow Stats Panel */}
+        {/* Workflow Stats & Actions Panel */}
         <Panel position="top-left" className="m-4">
-          <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-gray-700 font-medium">
-                {nodes.length} modules
-              </span>
-              <span className="text-gray-300">|</span>
-              <span className="text-gray-600">
-                {edges.length} connections
-              </span>
+          <div className="flex items-center gap-2">
+            {/* Stats */}
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-gray-700 font-medium">
+                  {nodes.length} modules
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-600">
+                  {edges.length} connections
+                </span>
+              </div>
             </div>
+
+            {/* Save Button */}
+            <button
+              onClick={handleSaveWorkflow}
+              disabled={saveStatus === 'saving'}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-sm transition-all text-sm font-medium ${
+                saveStatus === 'saved'
+                  ? 'bg-green-600 text-white'
+                  : saveStatus === 'saving'
+                  ? 'bg-gray-300 text-gray-600 cursor-wait'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+              title="Save workflow to browser storage"
+            >
+              {saveStatus === 'saved' ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Saved
+                </>
+              ) : saveStatus === 'saving' ? (
+                <>
+                  <Save className="h-4 w-4 animate-pulse" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Save Workflow
+                </>
+              )}
+            </button>
+
+            {/* Export Button */}
+            <button
+              onClick={handleExportWorkflow}
+              className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg shadow-sm transition-colors text-sm font-medium"
+              title="Export workflow as JSON file"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
           </div>
         </Panel>
 
@@ -409,8 +497,9 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
                 (input) to connect
               </div>
               <div><span className="font-medium text-gray-700">Delete/Backspace</span> to remove selected</div>
-              <div className="pt-1 mt-1 border-t border-gray-200">
-                <span className="text-gray-600">Tip: All new nodes can be connected to build your workflow</span>
+              <div className="pt-1 mt-1 border-t border-gray-200 space-y-1">
+                <div className="text-gray-600">💡 All new nodes can be connected to build your workflow</div>
+                <div className="text-gray-600">💾 Click "Save Workflow" to persist your changes</div>
               </div>
             </div>
           </div>

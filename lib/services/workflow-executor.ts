@@ -227,7 +227,7 @@ export class WorkflowExecutor {
         slackWebhook: config.slackWebhook,
         emailRecipients: config.emailRecipients,
         message: config.message,
-        webhookUrl: config.webhookUrl
+        webhookUrl: (config as any).webhookUrl
       },
       actionData
     )

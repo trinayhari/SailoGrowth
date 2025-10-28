@@ -1,0 +1,11 @@
+{
+  "/_not-found": "app/_not-found.js",
+  "/api/query/route": "app/api/query/route.js",
+  "/api/schema/route": "app/api/schema/route.js",
+  "/api/workflow/execute/route": "app/api/workflow/execute/route.js",
+  "/api/workflow/generate-query/route": "app/api/workflow/generate-query/route.js",
+  "/api/workflow/interpret-schema/route": "app/api/workflow/interpret-schema/route.js",
+  "/api/workflow/test-action/route": "app/api/workflow/test-action/route.js",
+  "/api/workflow/test-connection/route": "app/api/workflow/test-connection/route.js",
+  "/page": "app/page.js"
+}

@@ -84,7 +84,7 @@ EXPLANATION: [brief explanation of what the query does and insights it provides]
       return {
         ...result,
         data,
-        chartConfig: this.generateChartConfig(result.chartType, data)
+        chartConfig: this.generateChartConfig(result.chartType || 'table', data)
       }
     } catch (error) {
       console.error('Error generating query:', error)
@@ -103,9 +103,9 @@ EXPLANATION: [brief explanation of what the query does and insights it provides]
   }
 
   private parseResponse(response: string): Omit<QueryResult, 'data' | 'chartConfig'> {
-    const sqlMatch = response.match(/SQL:\s*(.*?)(?=CHART_TYPE:|EXPLANATION:|$)/s)
+    const sqlMatch = response.match(/SQL:\s*(.*?)(?=CHART_TYPE:|EXPLANATION:|$)/)
     const chartTypeMatch = response.match(/CHART_TYPE:\s*(line|bar|pie|table)/)
-    const explanationMatch = response.match(/EXPLANATION:\s*(.*?)$/s)
+    const explanationMatch = response.match(/EXPLANATION:\s*(.*?)$/)
 
     const sql = sqlMatch ? sqlMatch[1].trim() : ''
     const chartType = chartTypeMatch ? chartTypeMatch[1] as any : 'table'

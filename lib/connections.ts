@@ -176,7 +176,7 @@ export class ConnectionManager {
     const index = this.connections.findIndex(conn => conn.id === id)
     if (index === -1) return null
 
-    this.connections[index] = { ...this.connections[index], ...updates }
+    this.connections[index] = { ...this.connections[index], ...updates } as any
     this.saveConnections()
     return this.connections[index]
   }

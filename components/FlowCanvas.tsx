@@ -16,7 +16,7 @@ import {
   Panel,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Plus, Save, Check, Download } from 'lucide-react'
+import { Plus, Save, Check, Download, Play } from 'lucide-react'
 import NodeCard from './NodeCard'
 
 const nodeTypes = {
@@ -291,6 +291,39 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
     URL.revokeObjectURL(url)
   }, [nodes, edges])
 
+  const handleExecuteWorkflow = useCallback(async () => {
+    try {
+      // Transform nodes to use the correct type for backend
+      const transformedNodes = nodes.map(node => ({
+        ...node,
+        type: node.data.type, // Use the workflow type from data.type instead of 'card'
+        data: {
+          ...node.data,
+          config: node.data.config || {}
+        }
+      }))
+
+      const response = await fetch('/api/workflow/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: `workflow-${Date.now()}`,
+          nodes: transformedNodes,
+          edges
+        })
+      })
+      
+      const result = await response.json()
+      if (result.success) {
+        alert(`✅ Workflow executed successfully!\n\nExecution ID: ${result.execution.id}\nStatus: ${result.execution.status}\nDuration: ${Math.round((new Date(result.execution.completedAt).getTime() - new Date(result.execution.startedAt).getTime()) / 1000)}s\n\nCheck your Slack for notifications!`)
+      } else {
+        alert(`❌ Workflow execution failed:\n${result.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      alert(`❌ Execution failed: ${error}`)
+    }
+  }, [nodes, edges])
+
   return (
     <div className="w-full h-full bg-gray-50">
       <ReactFlow
@@ -468,6 +501,16 @@ export default function FlowCanvas({ onNodeSelect }: FlowCanvasProps) {
                   Save Workflow
                 </>
               )}
+            </button>
+
+            {/* Execute Button */}
+            <button
+              onClick={handleExecuteWorkflow}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm transition-colors text-sm font-medium"
+              title="Execute the complete workflow"
+            >
+              <Play className="h-4 w-4" />
+              Execute Workflow
             </button>
 
             {/* Export Button */}

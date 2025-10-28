@@ -1,0 +1,21 @@
+"use strict";(()=>{var e={};e.id=384,e.ids=[384],e.modules={30517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},15221:(e,t,a)=>{a.r(t),a.d(t,{headerHooks:()=>y,originalPathname:()=>g,patchFetch:()=>w,requestAsyncStorage:()=>p,routeModule:()=>u,serverHooks:()=>h,staticGenerationAsyncStorage:()=>d,staticGenerationBailout:()=>m});var r={};a.r(r),a.d(r,{POST:()=>c});var n=a(10884),s=a(16132),o=a(21040),i=a(95798),l=a(53569);async function c(e){try{let t=await e.json(),{entityDescription:a,condition:r,model:n}=t;if(!a||!r)return i.Z.json({error:"Entity description and condition are required"},{status:400});let s=await l.t.generateMonitorQuery(a,r,n||"anthropic/claude-3-sonnet");return i.Z.json({success:!0,query:s.query,explanation:s.explanation,model:n||"anthropic/claude-3-sonnet"})}catch(e){return console.error("Query generation failed:",e),i.Z.json({error:e.message||"Failed to generate query"},{status:500})}}let u=new n.AppRouteRouteModule({definition:{kind:s.x.APP_ROUTE,page:"/api/workflow/generate-query/route",pathname:"/api/workflow/generate-query",filename:"route",bundlePath:"app/api/workflow/generate-query/route"},resolvedPagePath:"/Users/trinayhari/SailoGrowth/app/api/workflow/generate-query/route.ts",nextConfigOutput:"",userland:r}),{requestAsyncStorage:p,staticGenerationAsyncStorage:d,serverHooks:h,headerHooks:y,staticGenerationBailout:m}=u,g="/api/workflow/generate-query/route";function w(){return(0,o.patchFetch)({serverHooks:h,staticGenerationAsyncStorage:d})}},53569:(e,t,a)=>{a.d(t,{t:()=>n});class r{constructor(e){if(this.baseUrl="https://openrouter.ai/api/v1",this.apiKey=e||process.env.OPENROUTER_API_KEY||"",!this.apiKey)throw Error("OpenRouter API key is required")}async chat(e){try{let t=await fetch(`${this.baseUrl}/chat/completions`,{method:"POST",headers:{Authorization:`Bearer ${this.apiKey}`,"Content-Type":"application/json","HTTP-Referer":process.env.OPENROUTER_APP_URL||"http://localhost:3001","X-Title":process.env.OPENROUTER_APP_NAME||"SailoGrowth"},body:JSON.stringify(e)});if(!t.ok){let e=await t.json();throw Error(`OpenRouter API error: ${e.error?.message||t.statusText}`)}let a=await t.json();return a}catch(e){throw console.error("OpenRouter API call failed:",e),e}}async interpretSchema(e,t="anthropic/claude-3-sonnet",a=.7){let r=`You are a database schema analyst. Analyze the provided database schema and identify:
+1. Key entities (e.g., users, events, sessions, products)
+2. Important relationships between tables
+3. Event tracking patterns
+4. User behavior indicators
+5. Business metrics that can be derived
+
+Provide a clear, structured analysis that will help set up automated monitoring and alerts.`,n=`Analyze this database schema and identify key entities, relationships, and monitoring opportunities:
+
+${e}`,s=await this.chat({model:t,messages:[{role:"system",content:r},{role:"user",content:n}],temperature:a,max_tokens:2e3});return s.choices[0].message.content}async generateMonitorQuery(e,t,a="anthropic/claude-3-sonnet"){let r=`You are an SQL expert. Generate SQL queries for monitoring specific conditions in a database.
+Return your response as JSON with two fields: "query" (the SQL query) and "explanation" (brief description).`,n=`Generate a SQL query to monitor: ${t}
+
+Context: ${e}
+
+Return JSON with "query" and "explanation" fields.`,s=await this.chat({model:a,messages:[{role:"system",content:r},{role:"user",content:n}],temperature:.3,max_tokens:1e3});try{let e=JSON.parse(s.choices[0].message.content);return e}catch{return{query:s.choices[0].message.content,explanation:"Generated monitoring query"}}}async generateAlertMessage(e,t,a="anthropic/claude-3-sonnet"){let r=`You are a helpful assistant that generates alert messages based on templates and data.
+Replace template variables like {{variable}} with actual values from the provided data.
+Keep the message clear, concise, and actionable.`,n=`Template: ${e}
+
+Data: ${JSON.stringify(t,null,2)}
+
+Generate the final alert message with all variables replaced.`,s=await this.chat({model:a,messages:[{role:"system",content:r},{role:"user",content:n}],temperature:.5,max_tokens:500});return s.choices[0].message.content}}let n=new r}};var t=require("../../../../webpack-runtime.js");t.C(e);var a=e=>t(t.s=e),r=t.X(0,[271,107],()=>a(15221));module.exports=r})();

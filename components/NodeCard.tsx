@@ -3,6 +3,7 @@
 import React, { useState, memo, useCallback } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { Edit2, Check, X } from 'lucide-react'
+import NodePreview from './NodePreview'
 
 type NodeCardData = {
   label: string
@@ -126,6 +127,25 @@ function NodeCard({ data, selected }: NodeProps) {
           />
           {nodeData.state}
         </div>
+
+        {/* Node Preview - Convert NodeCard data to WorkflowNode format */}
+        <NodePreview 
+          node={{
+            id: `${nodeData.type}-card`,
+            type: nodeData.type as any,
+            position: { x: 0, y: 0 },
+            data: {
+              title: nodeData.label,
+              icon: nodeData.icon,
+              description: nodeData.description,
+              outcome: 'Processing data',
+              status: nodeData.state.toLowerCase() as any,
+              config: {}
+            },
+            inputs: nodeData.type !== 'data-connector' ? ['input'] : [],
+            outputs: nodeData.type !== 'action-executor' ? ['output'] : []
+          }}
+        />
       </div>
 
       {/* Output Handle - right side (all nodes can send output except action-executor) */}

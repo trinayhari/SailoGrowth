@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { Settings, Play, Pause, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 import { WorkflowNode as WorkflowNodeType } from '../lib/workflow-builder-types'
+import NodePreview from './NodePreview'
 
 interface WorkflowNodeProps {
   node: WorkflowNodeType
@@ -241,6 +242,9 @@ export default function WorkflowNode({
             </div>
           </div>
         </div>
+
+        {/* Node Preview */}
+        <NodePreview node={node} />
       </div>
     </div>
   )
